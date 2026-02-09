@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống gọi bảo trì TQC</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 Hệ thống gọi bảo trì TQC</h1>
+            <div class="status-bar">
+                <span class="status-item">
+                    <span class="badge badge-warning">Đang chờ: <span id="pendingCount">0</span></span>
+                </span>
+                <span class="status-item">
+                    <span class="badge badge-info">Đang xử lý: <span id="processingCount">0</span></span>
+                </span>
+                <span class="status-item">
+                    <span class="badge badge-success">Hoàn thành: <span id="completedCount">0</span></span>
+                </span>
+            </div>
+        </header>
+
+        <main>
+            <!-- TQC Panel - Gọi dịch vụ -->
+            <section class="panel tqc-panel">
+                <h2>📞 TQC - Gọi dịch vụ bảo trì</h2>
+                <form id="callServiceForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="machineCode">Mã máy *</label>
+                            <input type="text" id="machineCode" name="machineCode" 
+                                   placeholder="VD: M001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="machineName">Tên máy *</label>
+                            <input type="text" id="machineName" name="machineName" 
+                                   placeholder="VD: CNC Lathe" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="location">Vị trí *</label>
+                            <input type="text" id="location" name="location" 
+                                   placeholder="VD: Line A - Station 3" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="esp32DeviceId">ESP32 Device ID *</label>
+                            <select id="esp32DeviceId" name="esp32DeviceId" required>
+                                <option value="">-- Chọn ESP32 --</option>
+                                <option value="ESP32_001">ESP32_001 (Kỹ sư A)</option>
+                                <option value="ESP32_002">ESP32_002 (Kỹ sư B)</option>
+                                <option value="ESP32_003">ESP32_003 (Kỹ sư C)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="issueDescription">Mô tả sự cố *</label>
+                        <textarea id="issueDescription" name="issueDescription" 
+                                  placeholder="Mô tả chi tiết sự cố..." required rows="3"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-large">
+                        🚨 GỌI BẢO TRÌ NGAY
+                    </button>
+                </form>
+            </section>
+
+            <!-- Monitoring Panel -->
+            <section class="panel monitoring-panel">
+                <h2>📊 Theo dõi yêu cầu</h2>
+                
+                <div class="filter-tabs">
+                    <button class="tab-btn active" data-status="all">Tất cả</button>
+                    <button class="tab-btn" data-status="REQUESTED">Đang chờ</button>
+                    <button class="tab-btn" data-status="ACKNOWLEDGED">Đã nhận</button>
+                    <button class="tab-btn" data-status="ARRIVED">Đang sửa</button>
+                    <button class="tab-btn" data-status="COMPLETED">Hoàn thành</button>
+                </div>
+
+                <div class="requests-container" id="requestsList">
+                    <!-- Requests will be loaded here -->
+                    <div class="loading">Đang tải dữ liệu...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>

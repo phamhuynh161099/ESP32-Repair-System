@@ -93,15 +93,15 @@ async function loadRequests() {
         console.error('Error loading requests:', error);
         container.innerHTML = '<div class="loading">Lỗi khi tải dữ liệu</div>';
     }
-}
+}đ
 
 // Render request card
 function renderRequestCard(request) {
     const statusText = {
-        'REQUESTED': 'Đang chờ',
-        'ACKNOWLEDGED': 'Đã nhận',
-        'ARRIVED': 'Đang sửa',
-        'COMPLETED': 'Hoàn thành'
+        'REQUESTED': 'Waiting',
+        'ACKNOWLEDGED': 'Acknowledge',
+        'ARRIVED': 'Fixing',
+        'COMPLETED': 'Completed'
     };
     
     return `
@@ -115,11 +115,11 @@ function renderRequestCard(request) {
                 </span>
             </div>
             <div class="request-details">
-                <p><strong>📍 Vị trí:</strong> ${request.machine.location}</p>
-                <p><strong>🔧 Sự cố:</strong> ${request.issueDescription}</p>
-                ${request.engineerName ? `<p><strong>👷 Kỹ sư:</strong> ${request.engineerName}</p>` : ''}
+                <p><strong>📍 Location:</strong> ${request.machine.location}</p>
+                <p><strong>🔧 Issue:</strong> ${request.issueDescription}</p>
+                ${request.engineerName ? `<p><strong>👷 Engineer Nname:</strong> ${request.engineerName}</p>` : ''}
                 ${request.status === 'COMPLETED' ? `
-                    <p><strong>⏱️ Tổng thời gian:</strong> ${formatTime(request.totalTime)}</p>
+                    <p><strong>⏱️ Total Time:</strong> ${formatTime(request.totalTime)}</p>
                 ` : ''}
             </div>
             ${renderTimeline(request)}

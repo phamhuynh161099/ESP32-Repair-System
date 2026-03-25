@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Fixing ESP TQC</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🔧 Hệ thống gọi bảo trì TQC</h1>
+            <h1><i class="fa-solid fa-gears"></i> System Fixing ESP TQC</h1>
             <div class="status-bar">
                 <span class="status-item">
                     <span class="badge badge-warning">Waiting: <span id="pendingCount">0</span></span>
@@ -26,18 +27,18 @@
         <main>
             <!-- TQC Panel - Gọi dịch vụ -->
             <section class="panel tqc-panel">
-                <h2>📞 TQC - Gọi dịch vụ bảo trì</h2>
+                <h2><i class="fa-solid fa-phone"></i> TQC - Call Engineer</h2>
                 <form id="callServiceForm">
                     <div class="form-row">
                         <div class="form-group">
                             <label for="machineCode">Mã máy *</label>
                             <input type="text" id="machineCode" name="machineCode" value="M001"
-                                   placeholder="VD: M001" required>
+                                   placeholder="Ex: M001" required>
                         </div>
                         <div class="form-group">
                             <label for="machineName">Tên máy *</label>
                             <input type="text" id="machineName" name="machineName" value="CNC Lathe" 
-                                   placeholder="VD: CNC Lathe" required>
+                                   placeholder="Ex: CNC Lathe" required>
                         </div>
                     </div>
                     
@@ -45,7 +46,7 @@
                         <div class="form-group">
                             <label for="location">Location *</label>
                             <input type="text" id="location" name="location" 
-                                   placeholder="VD: Line A - Station 3" required>
+                                   placeholder="Ex: Line A - Station 3" required>
                         </div>
                         <div class="form-group">
                             <label for="esp32DeviceId">ESP32 Device ID *</label>
@@ -61,18 +62,18 @@
                     <div class="form-group">
                         <label for="issueDescription">Descript Issue *</label>
                         <textarea id="issueDescription" name="issueDescription" 
-                                  placeholder="Mô tả chi tiết sự cố..." required rows="3"></textarea>
+                                  placeholder="Desprite detail issue" required rows="3"></textarea>
                     </div>
                     
                     <button type="submit" class="btn btn-primary btn-large">
-                        🚨 Call Engineer
+                        <i class="fa-solid fa-bullhorn"></i> Call Engineer
                     </button>
                 </form>
             </section>
 
             <!-- Monitoring Panel -->
             <section class="panel monitoring-panel">
-                <h2>📊 Tracking Request</h2>
+                <h2><i class="fa-solid fa-chart-column"></i> Tracking Request</h2>
                 
                 <div class="filter-tabs">
                     <button class="tab-btn active" data-status="all">All Process</button>

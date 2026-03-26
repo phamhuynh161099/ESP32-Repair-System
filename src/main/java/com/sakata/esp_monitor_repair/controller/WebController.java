@@ -10,4 +10,9 @@ public class WebController {
     public String index() {
         return "index";
     }
+
+    @GetMapping("/v2")
+    public String indexV2() {
+        return "index-v2";
+    }
 }

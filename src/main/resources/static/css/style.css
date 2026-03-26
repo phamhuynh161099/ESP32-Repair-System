@@ -44,6 +44,11 @@ h1 {
     font-size: 14px;
 }
 
+.badge-danger {
+    background: #f8d7da;
+    color: #842029;
+}
+
 .badge-warning {
     background: #fff3cd;
     color: #856404;
@@ -294,4 +299,9 @@ main {
 
 .toast.error {
     background: #dc3545;
+}
+
+.toast.warn {
+    background: #ffc107;
+    ;
 }

@@ -3,6 +3,7 @@ package com.sakata.esp_monitor_repair.service;
 import com.sakata.esp_monitor_repair.model.*;
 import com.sakata.esp_monitor_repair.repository.MaintenanceRepository;
 import com.sakata.esp_monitor_repair.repository.MaintenanceTrackingRepository;
+import com.sakata.esp_monitor_repair.repository.TicketRepository;
 import com.sakata.esp_monitor_repair.repository.MachineRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,9 @@ public class MaintenanceTrackingService {
     @Autowired
     private MaintenanceTrackingRepository maintenanceTrackingRepository;
 
+    @Autowired
+    private TicketRepository ticketRepository;
+
     // Lấy danh sách tất cả yêu cầu
     public List<MaintenanceTracking> getAllRequests() {
         return maintenanceTrackingRepository.findTop20ByOrderByTimestamp1Desc();
@@ -34,100 +38,91 @@ public class MaintenanceTrackingService {
         return maintenanceTrackingRepository.findByStatusOrderByTimestamp1Desc(status);
     }
 
-    // ==========================
-
-    // TQC tạo yêu cầu (timestamp1)
+    // Lấy yêu cầu đang chờ cho ESP32
     @Transactional
-    public MaintenanceRequest createRequest(Machine machineData, String issueDescription) {
-        // Tìm hoặc tạo mới Machine
-        Machine machine = machineRepository.findByMachineCode(machineData.getMachineCode())
-                .orElseGet(() -> {
-                    // Nếu chưa tồn tại, tạo mới
-                    Machine newMachine = new Machine();
-                    newMachine.setMachineCode(machineData.getMachineCode());
-                    newMachine.setMachineName(machineData.getMachineName());
-                    newMachine.setLocation(machineData.getLocation());
-                    newMachine.setEsp32DeviceId(machineData.getEsp32DeviceId());
-                    newMachine.setActive(true);
-                    return machineRepository.save(newMachine);
-                });
+    public Optional<MaintenanceTracking> getCurrentRequest(String espDeviceId) {
+        Optional<MaintenanceTracking> resultMaintenanceTracking = null;
+        Optional<MaintenanceTracking> currentMaintenanceTracking = maintenanceTrackingRepository
+                .findFirstByTicket_DeviceIdAndStatusInOrderByIdAsc(
+                        espDeviceId,
+                        List.of("REQUESTED", "ACKNOWLEDGED", "ARRIVED"));
 
-        // Tạo MaintenanceRequest
-        MaintenanceRequest request = new MaintenanceRequest();
-        request.setMachine(machine);
-        request.setIssueDescription(issueDescription);
-        request.setTimestamp1(LocalDateTime.now());
-        request.setStatus(MaintenanceStatus.REQUESTED);
+        if (currentMaintenanceTracking.isEmpty()) {
+            System.out.println("espDeviceId:  Trống" + espDeviceId);
+            Optional<MaintenanceTracking> holdingMaintenanceTracking = maintenanceTrackingRepository
+                    .findFirstByTicket_DeviceIdAndStatusInOrderByIdAsc(
+                            espDeviceId,
+                            List.of("NONE"));
 
-        return maintenanceRepository.save(request);
+            if (holdingMaintenanceTracking.isEmpty()) {
+
+            } else {
+                holdingMaintenanceTracking.get().setStatus("REQUESTED");
+                holdingMaintenanceTracking.get().setTimestamp1(LocalDateTime.now());
+                maintenanceTrackingRepository.save(holdingMaintenanceTracking.get());
+
+                Ticket ticket = holdingMaintenanceTracking.get().getTicket();
+                ticket.setStatus("HANDLING");
+                ticketRepository.save(ticket);
+
+                resultMaintenanceTracking = holdingMaintenanceTracking;
+            }
+        } else {
+            resultMaintenanceTracking = currentMaintenanceTracking;
+        }
+
+        return resultMaintenanceTracking;
     }
 
     // Engineer nhận yêu cầu từ ESP32 (timestamp2)
     @Transactional
-    public MaintenanceRequest acknowledgeRequest(String esp32DeviceId, String engineerName) {
-        Optional<MaintenanceRequest> requestOpt = maintenanceRepository
-                .findFirstByMachine_Esp32DeviceIdAndStatusIn(
-                        esp32DeviceId,
-                        List.of(MaintenanceStatus.REQUESTED));
+    public MaintenanceTracking acknowledgeRequest(String espDeviceId, String engineerName, String requestId) {
+        Optional<MaintenanceTracking> requestOpt = maintenanceTrackingRepository
+                .findFirstByTicket_DeviceIdAndStatusInAndIdOrderByIdAsc(
+                        espDeviceId,
+                        List.of("REQUESTED"), Long.valueOf(requestId));
 
         if (requestOpt.isPresent()) {
-            MaintenanceRequest request = requestOpt.get();
+            MaintenanceTracking request = requestOpt.get();
             request.setTimestamp2(LocalDateTime.now());
-            request.setStatus(MaintenanceStatus.ACKNOWLEDGED);
-            request.setEngineerName(engineerName);
-            return maintenanceRepository.save(request);
+            request.setStatus("ACKNOWLEDGED");
+            return maintenanceTrackingRepository.save(request);
         }
-        throw new RuntimeException("No pending request found for device: " + esp32DeviceId);
+        throw new RuntimeException("No pending request found for device: " + espDeviceId);
     }
 
     // Engineer đã đến hiện trường (timestamp3)
     @Transactional
-    public MaintenanceRequest arriveAtLocation(String esp32DeviceId) {
-        Optional<MaintenanceRequest> requestOpt = maintenanceRepository
-                .findFirstByMachine_Esp32DeviceIdAndStatusIn(
-                        esp32DeviceId,
-                        List.of(MaintenanceStatus.ACKNOWLEDGED));
+    public MaintenanceTracking arriveAtLocation(String espDeviceId, String engineerName, String requestId) {
+        Optional<MaintenanceTracking> requestOpt = maintenanceTrackingRepository
+                .findFirstByTicket_DeviceIdAndStatusInAndIdOrderByIdAsc(
+                        espDeviceId,
+                        List.of("ACKNOWLEDGED"), Long.valueOf(requestId));
 
         if (requestOpt.isPresent()) {
-            MaintenanceRequest request = requestOpt.get();
+            MaintenanceTracking request = requestOpt.get();
             request.setTimestamp3(LocalDateTime.now());
-            request.setStatus(MaintenanceStatus.ARRIVED);
-            return maintenanceRepository.save(request);
+            request.setStatus("ARRIVED");
+            return maintenanceTrackingRepository.save(request);
         }
-        throw new RuntimeException("No acknowledged request found for device: " + esp32DeviceId);
+        throw new RuntimeException("No acknowledged request found for device: " + espDeviceId);
     }
 
     // Hoàn thành sửa chữa (timestamp4)
     @Transactional
-    public MaintenanceRequest completeRequest(String esp32DeviceId) {
-        Optional<MaintenanceRequest> requestOpt = maintenanceRepository
-                .findFirstByMachine_Esp32DeviceIdAndStatusIn(
-                        esp32DeviceId,
-                        List.of(MaintenanceStatus.ARRIVED));
+    public MaintenanceTracking completeRequest(String espDeviceId, String engineerName, String requestId) {
+        Optional<MaintenanceTracking> requestOpt = maintenanceTrackingRepository
+                .findFirstByTicket_DeviceIdAndStatusInAndIdOrderByIdAsc(
+                        espDeviceId,
+                        List.of("ARRIVED"), Long.valueOf(requestId));
 
         if (requestOpt.isPresent()) {
-            MaintenanceRequest request = requestOpt.get();
+            MaintenanceTracking request = requestOpt.get();
             request.setTimestamp4(LocalDateTime.now());
-            request.setStatus(MaintenanceStatus.COMPLETED);
-            return maintenanceRepository.save(request);
+            request.setStatus("COMPLETED");
+            return maintenanceTrackingRepository.save(request);
         }
-        throw new RuntimeException("No arrived request found for device: " + esp32DeviceId);
+        throw new RuntimeException("No arrived request found for device: " + espDeviceId);
     }
-
-    // Lấy yêu cầu đang chờ cho ESP32
-    public Optional<MaintenanceRequest> getPendingRequestForDevice(String esp32DeviceId) {
-        return maintenanceRepository.findFirstByMachine_Esp32DeviceIdAndStatusIn(
-                esp32DeviceId,
-                List.of(MaintenanceStatus.REQUESTED));
-    }
-
-    // // Lấy tất cả máy
-    // public List<Machine> getAllMachines() {
-    // return machineRepository.findAll();
-    // }
-
-    // Lấy máy theo ESP32 ID
-    public Optional<Machine> getMachineByEsp32Id(String esp32DeviceId) {
-        return machineRepository.findByEsp32DeviceId(esp32DeviceId);
-    }
+    // ==========================
 }

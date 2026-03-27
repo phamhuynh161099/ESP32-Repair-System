@@ -55,54 +55,19 @@ public class MaintenanceV2Controller {
         }
     }
 
-    // Lấy danh sách tất cả yêu cầu
-    @GetMapping("/requests")
-    public ResponseEntity<List<MaintenanceTracking>> getAllRequests() {
-        return ResponseEntity.ok(maintenanceTrackingService.getAllRequests());
-    }
-
-    // Lấy yêu cầu theo trạng thái
-    @GetMapping("/requests/status/{status}")
-    public ResponseEntity<List<MaintenanceTracking>> getRequestsByStatus(
-            @PathVariable String status) {
-        return ResponseEntity.ok(maintenanceTrackingService.getRequestsByStatus(status));
-    }
-
-    // ESP32 gọi API này để kiểm tra có yêu cầu mới không
-    @GetMapping("/check/{esp32DeviceId}")
-    public ResponseEntity<Map<String, Object>> checkPendingRequest(
-            @PathVariable String esp32DeviceId) {
-
-        Optional<MaintenanceRequest> request = maintenanceService.getPendingRequestForDevice(esp32DeviceId);
-
-        Map<String, Object> response = new HashMap<>();
-        if (request.isPresent()) {
-            MaintenanceRequest req = request.get();
-            response.put("hasRequest", true);
-            response.put("requestId", req.getId());
-            response.put("machineCode", req.getMachine().getMachineCode());
-            response.put("machineName", req.getMachine().getMachineName());
-            response.put("location", req.getMachine().getLocation());
-            response.put("issueDescription", req.getIssueDescription());
-            response.put("timestamp1", req.getTimestamp1());
-        } else {
-            response.put("hasRequest", false);
-        }
-
-        return ResponseEntity.ok(response);
-    }
-    // ======================================
-
     // ESP32 gọi khi engineer click button lần 1 (timestamp2 - acknowledged)
     @PostMapping("/acknowledge")
     public ResponseEntity<Map<String, Object>> acknowledgeRequest(
             @RequestBody Map<String, String> payload) {
 
-        String esp32DeviceId = payload.get("esp32DeviceId");
+        String espDeviceId = payload.get("esp32DeviceId");
         String engineerName = payload.getOrDefault("engineerName", "Unknown");
 
+        String requestId = payload.getOrDefault("requestId", "Unknown");
+        System.out.println("::acknowledge:  " + espDeviceId);
         try {
-            MaintenanceRequest request = maintenanceService.acknowledgeRequest(esp32DeviceId, engineerName);
+            MaintenanceTracking request = maintenanceTrackingService.acknowledgeRequest(espDeviceId, engineerName,
+                    requestId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -125,10 +90,13 @@ public class MaintenanceV2Controller {
     public ResponseEntity<Map<String, Object>> arriveAtLocation(
             @RequestBody Map<String, String> payload) {
 
-        String esp32DeviceId = payload.get("esp32DeviceId");
+        String espDeviceId = payload.get("esp32DeviceId");
+        String engineerName = payload.getOrDefault("engineerName", "Unknown");
+        String requestId = payload.getOrDefault("requestId", null);
 
         try {
-            MaintenanceRequest request = maintenanceService.arriveAtLocation(esp32DeviceId);
+            MaintenanceTracking request = maintenanceTrackingService.arriveAtLocation(espDeviceId, engineerName,
+                    requestId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -151,10 +119,13 @@ public class MaintenanceV2Controller {
     public ResponseEntity<Map<String, Object>> completeRequest(
             @RequestBody Map<String, String> payload) {
 
-        String esp32DeviceId = payload.get("esp32DeviceId");
+        String espDeviceId = payload.get("esp32DeviceId");
+        String engineerName = payload.getOrDefault("engineerName", "Unknown");
+        String requestId = payload.getOrDefault("requestId", null);
 
         try {
-            MaintenanceRequest request = maintenanceService.completeRequest(esp32DeviceId);
+            MaintenanceTracking request = maintenanceTrackingService.completeRequest(espDeviceId, engineerName,
+                    requestId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -173,17 +144,42 @@ public class MaintenanceV2Controller {
         }
     }
 
-    // Lấy danh sách máy
-    @GetMapping("/machines")
-    public ResponseEntity<List<Machine>> getAllMachines() {
-        return ResponseEntity.ok(maintenanceService.getAllMachines());
+    // Lấy danh sách tất cả yêu cầu
+    @GetMapping("/requests")
+    public ResponseEntity<List<MaintenanceTracking>> getAllRequests() {
+        return ResponseEntity.ok(maintenanceTrackingService.getAllRequests());
     }
 
-    // Lấy máy theo ESP32 ID
-    @GetMapping("/machines/esp32/{esp32DeviceId}")
-    public ResponseEntity<Machine> getMachineByEsp32Id(@PathVariable String esp32DeviceId) {
-        Optional<Machine> machine = maintenanceService.getMachineByEsp32Id(esp32DeviceId);
-        return machine.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    // Lấy yêu cầu theo trạng thái
+    @GetMapping("/requests/status/{status}")
+    public ResponseEntity<List<MaintenanceTracking>> getRequestsByStatus(
+            @PathVariable String status) {
+        return ResponseEntity.ok(maintenanceTrackingService.getRequestsByStatus(status));
     }
+
+    // ESP32 gọi API này để kiểm tra có yêu cầu mới không !!!!!!!
+    @GetMapping("/check/{espDeviceId}")
+    public ResponseEntity<Map<String, Object>> checkPendingRequest(
+            @PathVariable String espDeviceId) {
+
+        Optional<MaintenanceTracking> request = maintenanceTrackingService.getCurrentRequest(espDeviceId);
+
+        Map<String, Object> response = new HashMap<>();
+        if (request.isPresent()) {
+            MaintenanceTracking req = request.get();
+            response.put("hasRequest", true);
+            response.put("requestId", req.getId());
+            response.put("status", req.getStatus());
+            response.put("machineCode", req.getTicket().getMachineCode());
+            response.put("machineName", req.getTicket().getMachineName());
+            response.put("location", req.getTicket().getLocation());
+            response.put("issueDescription", req.getTicket().getIssueDescription());
+            response.put("timestamp1", req.getTimestamp1());
+        } else {
+            response.put("hasRequest", false);
+        }
+
+        return ResponseEntity.ok(response);
+    }
+    // ======================================
 }

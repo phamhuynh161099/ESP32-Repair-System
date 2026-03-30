@@ -228,7 +228,7 @@ function updateStatusCounts(requests) {
 // Auto refresh
 function startAutoRefresh() {
   refreshInterval = setInterval(() => {
-    // loadRequests(); NEED OPEN
+    loadRequests();
   }, 5000); // Refresh every 5 seconds
 }
 

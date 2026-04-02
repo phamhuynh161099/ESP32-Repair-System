@@ -18,6 +18,10 @@ public class LineMapEsp {
     private String line_id;
     private String line_name;
     
-    private String esp_name;
-    private String esp_mac;
+    private String esp_line_name;
+    private String esp_line_mac;
+
+    private String esp_engineer_name;
+    private String esp_engineer_mac;
+
 }

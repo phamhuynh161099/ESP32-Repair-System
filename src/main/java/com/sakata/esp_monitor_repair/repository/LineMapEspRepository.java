@@ -13,10 +13,10 @@ import com.sakata.esp_monitor_repair.model.LineMapEsp;
 public interface LineMapEspRepository extends JpaRepository<LineMapEsp, Long> {
 
     // Trả về toàn bộ object LineMapEsp dựa vào MAC address
-    @Query("SELECT l FROM LineMapEsp l WHERE l.esp_mac = :macAddress")
+    @Query("SELECT l FROM LineMapEsp l WHERE l.esp_line_mac = :macAddress")
     Optional<LineMapEsp> findByEspMac(@Param("macAddress") String macAddress);
 
     // Nếu bạn chỉ muốn lấy mỗi chuỗi line_id cho nhẹ thì dùng hàm này
-    @Query("SELECT l.line_id FROM LineMapEsp l WHERE l.esp_mac = :macAddress")
+    @Query("SELECT l.line_id FROM LineMapEsp l WHERE l.esp_line_mac = :macAddress")
     Optional<String> findLineIdByEspMac(@Param("macAddress") String macAddress);
 }

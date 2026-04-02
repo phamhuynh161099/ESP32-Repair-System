@@ -125,4 +125,22 @@ public class MaintenanceTrackingService {
         throw new RuntimeException("No arrived request found for device: " + espDeviceId);
     }
     // ==========================
+
+    // ==============Khu Vuc Check cho ESP Line===========
+    @Transactional
+    public Optional<MaintenanceTracking> getCurrentRequestByMachineCode(String machineCode) {
+        Optional<MaintenanceTracking> resultMaintenanceTracking = null;
+        Optional<MaintenanceTracking> currentMaintenanceTracking = maintenanceTrackingRepository
+                .findFirstByTicket_MachineCodeAndStatusInOrderByIdAsc(
+                        machineCode,
+                        List.of("REQUESTED", "ACKNOWLEDGED", "ARRIVED"));
+
+        if (currentMaintenanceTracking.isEmpty()) {
+           
+        } else {
+            resultMaintenanceTracking = currentMaintenanceTracking;
+        }
+
+        return resultMaintenanceTracking;
+    }
 }

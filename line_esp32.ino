@@ -14,7 +14,7 @@
 enum DeviceState {
   STATE_NONE,
   STATE_CALLED_ENGINEER,
-  STATE_WAITING_ACCEPT, // Chờ Bạn Xác nhận kĩ sư đã sửa xong
+  STATE_WAITING_ACCEPT,  // Chờ Bạn Xác nhận kĩ sư đã sửa xong
 };
 
 
@@ -43,7 +43,7 @@ const unsigned long checkInterval = 3000;
 
 // --- Cấu hình Server (Endpoint API check-line) ---
 // Chú ý: Đổi IP dưới đây thành IP thực tế của máy chủ chạy Spring Boot của bạn
-const char* serverUrl = "http://103.140.249.253:8080/api/line-esp/get-line-info-by"; 
+const char* serverUrl = "http://103.140.249.253:8080/api/line-esp/get-line-info-by";
 
 // --- CẤU HÌNH LAYOUT OLED ---
 #define LABEL_X 0    // Tọa độ X của các nhãn (|)
@@ -58,11 +58,11 @@ String oledLine1 = "";
 String oledLine2 = "";
 String oledLine3 = "";
 
-int scrollX = 0;                     
-unsigned long lastScrollTime = 0;    
-const int SCROLL_SPEED = 40;         
-int waitTimer = 1500;                
-const int MAX_WIDTH_ALLOW = 128 - VALUE_X; 
+int scrollX = 0;
+unsigned long lastScrollTime = 0;
+const int SCROLL_SPEED = 40;
+int waitTimer = 1500;
+const int MAX_WIDTH_ALLOW = 128 - VALUE_X;
 
 // --- CÁC HÀM XỬ LÝ GIAO DIỆN OLED (Giữ nguyên của bạn) ---
 void renderDisplay() {
@@ -88,7 +88,7 @@ void renderDisplay() {
 
   // 3. Che phần chữ bị lẹm
   display.setColor(BLACK);
-  display.fillRect(0, 19, VALUE_X - 1, 45); 
+  display.fillRect(0, 19, VALUE_X - 1, 45);
   display.setColor(WHITE);
 
   // 4. In nhãn
@@ -101,22 +101,22 @@ void renderDisplay() {
 
 void handleScrolling() {
   display.setFont(ArialMT_Plain_10);
-  int maxW = max(display.getStringWidth(oledLine1), 
-             max(display.getStringWidth(oledLine2), 
-                 display.getStringWidth(oledLine3)));
+  int maxW = max(display.getStringWidth(oledLine1),
+                 max(display.getStringWidth(oledLine2),
+                     display.getStringWidth(oledLine3)));
 
   if (maxW > MAX_WIDTH_ALLOW) {
     if (millis() - lastScrollTime >= SCROLL_SPEED) {
       lastScrollTime = millis();
       if (waitTimer > 0) {
-        waitTimer -= SCROLL_SPEED; 
+        waitTimer -= SCROLL_SPEED;
       } else {
-        scrollX++; 
-        if (scrollX > maxW - MAX_WIDTH_ALLOW + 20) { 
-          scrollX = 0;         
-          waitTimer = 1500;    
+        scrollX++;
+        if (scrollX > maxW - MAX_WIDTH_ALLOW + 20) {
+          scrollX = 0;
+          waitTimer = 1500;
         }
-        renderDisplay();       
+        renderDisplay();
       }
     }
   }
@@ -127,10 +127,10 @@ void updateOLED(String title, String line1, String line2, String line3) {
   oledLine1 = line1;
   oledLine2 = line2;
   oledLine3 = line3;
-  
-  scrollX = 0;          
-  waitTimer = 1500;     
-  
+
+  scrollX = 0;
+  waitTimer = 1500;
+
   renderDisplay();
 }
 
@@ -138,7 +138,7 @@ void updateOLED(String title, String line1, String line2, String line3) {
 void ringBuzzer() {
   for (int i = 0; i < 3; i++) {
     tone(BUZZER_PIN, 2000, 400);
-    delay(500); // Lưu ý: hàm delay ở đây khi chuông reo sẽ tạm dừng cuộn chữ, xong chuông chữ lại chạy tiếp
+    delay(500);  // Lưu ý: hàm delay ở đây khi chuông reo sẽ tạm dừng cuộn chữ, xong chuông chữ lại chạy tiếp
   }
 }
 
@@ -175,21 +175,21 @@ void fetchLineInfo() {
   // Lấy địa chỉ MAC của ESP
   macAddress = WiFi.macAddress();
   Serial.println("MAC Address: " + macAddress);
-  
+
   // Thông báo lên màn hình đang tải
   updateOLED("LOADING...", "MAC: " + macAddress, "Fetching Line Data", "Please wait...");
 
   // Tạo URL: http://.../api/line-esp/get-line-info-by?mac=XX:XX...
   String url = String(serverUrl) + "?mac=" + macAddress;
   Serial.println("url: " + url);
-  
+
   http.begin(client1, url);
   int httpCode = http.GET();
   if (httpCode == 200) {
     // Nếu API trả về thành công (Tìm thấy MAC trong Database)
     String payload = http.getString();
     Serial.println("Response: " + payload);
-    
+
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, payload);
 
@@ -206,16 +206,14 @@ void fetchLineInfo() {
     } else {
       updateOLED("ERROR", "JSON Parse Failed", error.c_str(), "");
     }
-  } 
-  else if (httpCode == 404) {
+  } else if (httpCode == 404) {
     // Nếu API trả về 404 (Không tìm thấy MAC trong bảng tbl_line_map_esp)
     updateOLED("UNREGISTERED", "MAC Not Found!", "MAC: " + macAddress, "Contact Admin");
-  } 
-  else {
+  } else {
     // Lỗi mạng hoặc server sập
     updateOLED("SERVER ERR", "HTTP Code: " + String(httpCode), "Check Server API", "");
   }
-  
+
   http.end();
 }
 
@@ -246,7 +244,7 @@ void loop() {
   // Hàm này chạy liên tục để duy trì hiệu ứng cuộn chữ mượt mà
   handleScrolling();
 
-   // Kiểm tra request định kỳ
+  // Kiểm tra request định kỳ
   if (millis() - lastCheckTime >= checkInterval) {
     lastCheckTime = millis();
     checkPendingRequests();
@@ -257,28 +255,13 @@ void loop() {
     delay(50);  // Debounce chống dội phím
     if (digitalRead(BUTTON_PIN) == LOW) {
       handleButtonPress();
-      while (digitalRead(BUTTON_PIN) == LOW); // Chờ nhả nút
+      while (digitalRead(BUTTON_PIN) == LOW);  // Chờ nhả nút
     }
   }
-  
-  delay(10); 
+
+  delay(10);
 }
 
-void handleButtonPress() {
-  switch (currentState) {
-    case STATE_NONE:
-      updateOLED("INFO", "No Task", "-", "System Active");
-      callMaintenanceEngineer();
-      break;
-    case STATE_WAITING_ACCEPT:
-       if (sendPostRequestComplete(STATE_NONE, "COMPLETED", "Waiting task")) {
-        // currentRequestId = "";
-        // machineCode = "";
-        // location = "";
-      }
-      break;
-  }
-}
 
 
 // Dữ liệu Request
@@ -314,34 +297,63 @@ void checkPendingRequests() {
         Serial.println("DEBUG: Đã nhận được yêu cầu mới!");
         currentMaintenanceState = STATE_REQUEST_RECEIVED;
         currentState = STATE_CALLED_ENGINEER;
-        updateOLED("LINE ESP", "Already Call Engineer","","");
+        updateOLED("LINE ESP", "Already Call Engineer", "", "");
         ringBuzzer();
       }
 
       if (requestStatus == "ACKNOWLEDGED") {
         currentMaintenanceState = STATE_ACKNOWLEDGED;
-        currentState = STATE_CALLED_ENGINEER;
-        updateOLED("LINE ESP", "Engineer is going to here", "", "");
-        ringBuzzer();
+        currentState = STATE_WAITING_ACCEPT;
+        updateOLED("LINE ESP", "Engineer Acknowledged", "Pls Click Button When Your Machine Fixed", "");
+        // ringBuzzer();
       }
 
-      if (requestStatus == "ARRIVED") {
-        currentMaintenanceState = STATE_ARRIVED;
-        currentState = STATE_WAITING_ACCEPT;
-        updateOLED("LINE ESP", "Engineer is fixing now", "Pls Click Button When Your Machine Fixed", "");
-        ringBuzzer();
-      }
+      // if (requestStatus == "ARRIVED") {
+      //   currentMaintenanceState = STATE_ARRIVED;
+      //   currentState = STATE_WAITING_ACCEPT;
+      //   updateOLED("LINE ESP", "Engineer is fixing now", "Pls Click Button When Your Machine Fixed", "");
+      //   // ringBuzzer();
+      // }
     }
   }
   http.end();
 }
 
+void handleButtonPress() {
+  Serial.println("Vo ham handleButtonPress..." + currentState);
+  switch (currentState) {
+    case STATE_NONE:
+      updateOLED("INFO", "No Task", "-", "System Active");
+      callMaintenanceEngineer();
+      break;
+    case STATE_WAITING_ACCEPT:
+      Serial.println("Nhan nut xac nhan...");
+      if (sendPostRequestComplete(STATE_NONE, "COMPLETED", "Waiting task")) {
+        currentRequestId = "";
+        machineCode = "";
+        machineName = "";
+        location = "";
+        issueDescription = "";
+        requestStatus = "";
+
+        currentState = STATE_NONE;
+        currentMaintenanceState = STATE_IDLE;
+
+        updateOLED("LINE ESP", "You Confirmed Engineer Fixed", "", "");
+        delay(8000);
+        updateOLED("LINE INFO", "ID: " + lineId, "Name: " + lineName, "ESP: " + espName);
+      }
+      break;
+  }
+}
+
+
 
 const char* urlApiRequestCom = "http://103.140.249.253:8080/api/maintenance-v2";
 bool sendPostRequestComplete(DeviceState nextState, String displayTitle, String displayMsg) {
   if (WiFi.status() != WL_CONNECTED) return false;
-
-  http.begin(client1, String(urlApiRequestCom) + "/complete"); // Đã thêm client1
+  Serial.println("Call api..." + currentRequestId + " " + espEngineerMac);
+  http.begin(client1, String(urlApiRequestCom) + "/complete");  // Đã thêm client1
   http.setTimeout(10000 * 6);
   http.addHeader("Content-Type", "application/json");
 
@@ -384,13 +396,13 @@ void callMaintenanceEngineer() {
 
   // 1. Đóng gói payload JSON giống hệt formData trên web
   DynamicJsonDocument doc(512);
-  // (Lưu ý: Các biến machineCode, machineName... bạn có thể gán cứng 
+  // (Lưu ý: Các biến machineCode, machineName... bạn có thể gán cứng
   // hoặc lấy từ dữ liệu lúc gọi api check-line ban đầu)
-  doc["machineCode"] = lineId;            
+  doc["machineCode"] = lineId;
   doc["machineName"] = lineName;
-  doc["location"] = lineId + " " + lineName;           
-  doc["deviceId"] = espEngineerMac;             
-  doc["issueDescription"] = "Call Error By ESP " + espName; 
+  doc["location"] = lineId + " " + lineName;
+  doc["deviceId"] = espEngineerMac;
+  doc["issueDescription"] = "Call Error By ESP " + espName;
 
   String payload;
   serializeJson(doc, payload);
@@ -407,16 +419,16 @@ void callMaintenanceEngineer() {
     DynamicJsonDocument respDoc(1024);
     DeserializationError error = deserializeJson(respDoc, response);
     if (!error) {
-      bool isSuccess = respDoc["success"];  
+      bool isSuccess = respDoc["success"];
       if (isSuccess) {
         // Đi sâu vào object JSON để lấy ticket status như code JS
         String ticketStatus = respDoc["data"]["maintenanceTracking"]["ticket"]["status"].as<String>();
         if (ticketStatus == "INIT") {
           updateOLED("IN QUEUE", "Đã ghi nhận", "Đang chờ xếp hàng", "Vui lòng đợi...");
-          ringBuzzer(); // Kêu còi báo hiệu
+          ringBuzzer();  // Kêu còi báo hiệu
         } else {
           updateOLED("SUCCESS", "Kĩ sư đang tới", "Yêu cầu thành công!", "");
-          ringBuzzer(); 
+          ringBuzzer();
         }
       } else {
         // Tương đương nhánh: showToast("Have Error, Pls Try Again!", "error")

@@ -86,35 +86,38 @@ public class MaintenanceV2Controller {
     }
 
     // ESP32 gọi khi engineer đến nơi (timestamp3 - arrived)
-    @PostMapping("/arrive")
-    public ResponseEntity<Map<String, Object>> arriveAtLocation(
-            @RequestBody Map<String, String> payload) {
+    /**
+     * !REMOVE
+     */
+    // @PostMapping("/arrive")
+    // public ResponseEntity<Map<String, Object>> arriveAtLocation(
+    //         @RequestBody Map<String, String> payload) {
 
-        String espDeviceId = payload.get("esp32DeviceId");
-        String engineerName = payload.getOrDefault("engineerName", "Unknown");
-        String requestId = payload.getOrDefault("requestId", null);
+    //     String espDeviceId = payload.get("esp32DeviceId");
+    //     String engineerName = payload.getOrDefault("engineerName", "Unknown");
+    //     String requestId = payload.getOrDefault("requestId", null);
 
-        try {
-            MaintenanceTracking request = maintenanceTrackingService.arriveAtLocation(espDeviceId, engineerName,
-                    requestId);
+    //     try {
+    //         MaintenanceTracking request = maintenanceTrackingService.arriveAtLocation(espDeviceId, engineerName,
+    //                 requestId);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("requestId", request.getId());
-            response.put("timestamp3", request.getTimestamp3());
-            response.put("status", request.getStatus());
-            response.put("message", "Engineer đã đến hiện trường");
+    //         Map<String, Object> response = new HashMap<>();
+    //         response.put("success", true);
+    //         response.put("requestId", request.getId());
+    //         response.put("timestamp3", request.getTimestamp3());
+    //         response.put("status", request.getStatus());
+    //         response.put("message", "Engineer đã đến hiện trường");
 
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
-        }
-    }
+    //         return ResponseEntity.ok(response);
+    //     } catch (RuntimeException e) {
+    //         Map<String, Object> response = new HashMap<>();
+    //         response.put("success", false);
+    //         response.put("message", e.getMessage());
+    //         return ResponseEntity.badRequest().body(response);
+    //     }
+    // }
 
-    // ESP32 gọi khi hoàn thành (timestamp4 - completed)
+    // ESP32 gọi khi hoàn thành (timestamp3 - completed)
     @PostMapping("/complete")
     public ResponseEntity<Map<String, Object>> completeRequest(
             @RequestBody Map<String, String> payload) {
@@ -130,7 +133,7 @@ public class MaintenanceV2Controller {
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("requestId", request.getId());
-            response.put("timestamp4", request.getTimestamp4());
+            response.put("timestamp3", request.getTimestamp3());
             response.put("status", request.getStatus());
             response.put("totalTime", request.getTotalTime());
             response.put("message", "Đã hoàn thành sửa chữa");

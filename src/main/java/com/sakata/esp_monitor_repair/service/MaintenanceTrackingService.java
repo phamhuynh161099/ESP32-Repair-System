@@ -92,8 +92,32 @@ public class MaintenanceTrackingService {
     }
 
     // Engineer đã đến hiện trường (timestamp3)
+    /**
+     * !REMOVE
+     * 2026.04.03 Khong can tinh thoi gian di chuyen
+     */
+    // @Transactional
+    // public MaintenanceTracking arriveAtLocation(String espDeviceId, String engineerName, String requestId) {
+    //     Optional<MaintenanceTracking> requestOpt = maintenanceTrackingRepository
+    //             .findFirstByTicket_DeviceIdAndStatusInAndIdOrderByIdAsc(
+    //                     espDeviceId,
+    //                     List.of("ACKNOWLEDGED"), Long.valueOf(requestId));
+
+    //     if (requestOpt.isPresent()) {
+    //         MaintenanceTracking request = requestOpt.get();
+    //         request.setTimestamp3(LocalDateTime.now());
+    //         request.setStatus("ARRIVED");
+    //         return maintenanceTrackingRepository.save(request);
+    //     }
+    //     throw new RuntimeException("No acknowledged request found for device: " + espDeviceId);
+    // }
+
+    // Hoàn thành sửa chữa (timestamp3)
+    /**
+     * 2026.04.03 Chuyen tu timestamp4 -> timestamp3
+     */
     @Transactional
-    public MaintenanceTracking arriveAtLocation(String espDeviceId, String engineerName, String requestId) {
+    public MaintenanceTracking completeRequest(String espDeviceId, String engineerName, String requestId) {
         Optional<MaintenanceTracking> requestOpt = maintenanceTrackingRepository
                 .findFirstByTicket_DeviceIdAndStatusInAndIdOrderByIdAsc(
                         espDeviceId,
@@ -102,27 +126,10 @@ public class MaintenanceTrackingService {
         if (requestOpt.isPresent()) {
             MaintenanceTracking request = requestOpt.get();
             request.setTimestamp3(LocalDateTime.now());
-            request.setStatus("ARRIVED");
-            return maintenanceTrackingRepository.save(request);
-        }
-        throw new RuntimeException("No acknowledged request found for device: " + espDeviceId);
-    }
-
-    // Hoàn thành sửa chữa (timestamp4)
-    @Transactional
-    public MaintenanceTracking completeRequest(String espDeviceId, String engineerName, String requestId) {
-        Optional<MaintenanceTracking> requestOpt = maintenanceTrackingRepository
-                .findFirstByTicket_DeviceIdAndStatusInAndIdOrderByIdAsc(
-                        espDeviceId,
-                        List.of("ARRIVED"), Long.valueOf(requestId));
-
-        if (requestOpt.isPresent()) {
-            MaintenanceTracking request = requestOpt.get();
-            request.setTimestamp4(LocalDateTime.now());
             request.setStatus("COMPLETED");
             return maintenanceTrackingRepository.save(request);
         }
-        throw new RuntimeException("No arrived request found for device: " + espDeviceId);
+        throw new RuntimeException("No acknowledged request found for device: " + espDeviceId);
     }
     // ==========================
 

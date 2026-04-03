@@ -165,7 +165,7 @@ public class MaintenanceV2Controller {
         Optional<MaintenanceTracking> request = maintenanceTrackingService.getCurrentRequest(espDeviceId);
 
         Map<String, Object> response = new HashMap<>();
-        if (request.isPresent()) {
+        if (request != null && request.isPresent()) {
             MaintenanceTracking req = request.get();
             response.put("hasRequest", true);
             response.put("requestId", req.getId());

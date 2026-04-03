@@ -22,8 +22,8 @@ public class MaintenanceTracking {
 
     private LocalDateTime timestamp1; // TQC push button
     private LocalDateTime timestamp2; // Engineer acknowledged
-    private LocalDateTime timestamp3; // Engineer arrived
-    private LocalDateTime timestamp4; // Completed fix
+    private LocalDateTime timestamp3; // Completed fix
+    // private LocalDateTime timestamp4; // Completed fix
     
     public long getResponseTime() {
         if (timestamp2 != null && timestamp1 != null) {
@@ -32,23 +32,23 @@ public class MaintenanceTracking {
         return 0;
     }
     
-    public long getArrivalTime() {
+    public long getFixTime() {
         if (timestamp3 != null && timestamp2 != null) {
             return java.time.Duration.between(timestamp2, timestamp3).getSeconds();
         }
         return 0;
     }
     
-    public long getFixTime() {
-        if (timestamp4 != null && timestamp3 != null) {
-            return java.time.Duration.between(timestamp3, timestamp4).getSeconds();
-        }
-        return 0;
-    }
+    // public long getFixTime() {
+    //     if (timestamp4 != null && timestamp3 != null) {
+    //         return java.time.Duration.between(timestamp3, timestamp4).getSeconds();
+    //     }
+    //     return 0;
+    // }
     
     public long getTotalTime() {
-        if (timestamp4 != null && timestamp1 != null) {
-            return java.time.Duration.between(timestamp1, timestamp4).getSeconds();
+        if (timestamp3 != null && timestamp1 != null) {
+            return java.time.Duration.between(timestamp1, timestamp3).getSeconds();
         }
         return 0;
     }

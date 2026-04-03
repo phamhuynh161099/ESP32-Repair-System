@@ -134,7 +134,7 @@ function renderRequestCard(request) {
   const statusText = {
     REQUESTED: "Waiting",
     ACKNOWLEDGED: "Acknowledge",
-    ARRIVED: "Fixing",
+    // ARRIVED: "Fixing",
     COMPLETED: "Completed",
   };
 
@@ -173,7 +173,7 @@ function renderTimeline(request) {
     timestamps.push(`
             <div class="timeline-item">
                 <span class="icon"><i class="fa-solid fa-phone"></i></span>
-                <span>Yêu cầu: ${formatDateTime(request.timestamp1)}</span>
+                <span>Requested: ${formatDateTime(request.timestamp1)}</span>
             </div>
         `);
   }
@@ -182,25 +182,25 @@ function renderTimeline(request) {
     timestamps.push(`
             <div class="timeline-item">
                 <span class="icon"><i class="fa-solid fa-check-to-slot"></i></span>
-                <span>Đã nhận: ${formatDateTime(request.timestamp2)} (${formatTime(request.responseTime)})</span>
+                <span>Acknowleged: ${formatDateTime(request.timestamp2)} (${formatTime(request.responseTime)})</span>
             </div>
         `);
   }
+
+  // if (request.timestamp3) {
+  //   timestamps.push(`
+  //           <div class="timeline-item">
+  //               <span class="icon"><i class="fa-solid fa-car"></i></span>
+  //               <span>Đã đến: ${formatDateTime(request.timestamp3)} (${formatTime(request.arrivalTime)})</span>
+  //           </div>
+  //       `);
+  // }
 
   if (request.timestamp3) {
     timestamps.push(`
             <div class="timeline-item">
-                <span class="icon"><i class="fa-solid fa-car"></i></span>
-                <span>Đã đến: ${formatDateTime(request.timestamp3)} (${formatTime(request.arrivalTime)})</span>
-            </div>
-        `);
-  }
-
-  if (request.timestamp4) {
-    timestamps.push(`
-            <div class="timeline-item">
                 <span class="icon"><i class="fa-solid fa-check-to-slot"></i></span>
-                <span>Hoàn thành: ${formatDateTime(request.timestamp4)} (${formatTime(request.fixTime)})</span>
+                <span>Compeleted: ${formatDateTime(request.timestamp3)} (${formatTime(request.fixTime)})</span>
             </div>
         `);
   }

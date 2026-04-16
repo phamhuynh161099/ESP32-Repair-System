@@ -500,7 +500,7 @@ const String SERVER_BASE_URL = "http://10.20.13.50:8080/espRecieve";
 
 // --- Cấu hình OLED ---
 // SSD1306Wire display(0x3c, 14, 12); // Mr.Huynh ESP
-SSD1306Wire display(0x3c, 5, 4); // Mr.Cuong ESP
+SSD1306Wire display(0x3c, 5, 4);  // Mr.Cuong ESP
 #define flipDisplay true
 #define LABEL_X 0
 #define VALUE_X 5
@@ -544,6 +544,10 @@ DeviceState currentState = STATE_IDLE;
 // Timer
 unsigned long lastCheckTime = 0;
 const unsigned long CHECK_INTERVAL = 3000;
+unsigned long displayRestoreTime = 0;
+
+unsigned long lastFetchTimeInfo = 0;
+const unsigned long FETCH_INTERVAL_INFO = 30 * 1000;  // 30s
 
 // OLED Scroll
 String oledTitle, oledLine1, oledLine2, oledLine3;
@@ -586,14 +590,23 @@ void renderDisplay() {
 }
 
 void updateOLED(String title, String line1, String line2, String line3) {
-  oledTitle = title; oledLine1 = line1; oledLine2 = line2; oledLine3 = line3;
-  scrollX = 0; waitTimer = 1500;
+  oledTitle = title;
+  oledLine1 = line1;
+  oledLine2 = line2;
+  oledLine3 = line3;
+  scrollX = 0;
+  waitTimer = 1500;
   renderDisplay();
 }
 
 void handleScrolling() {
+  if (displayRestoreTime > 0 && millis() > displayRestoreTime) {
+    displayRestoreTime = 0;
+    updateOLED("ENGINEER INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Engineer: " + currentEng.name + spaces, "");
+  }
+
   display.setFont(ArialMT_Plain_10);
-  int maxW = max({display.getStringWidth(oledLine1), display.getStringWidth(oledLine2), display.getStringWidth(oledLine3)});
+  int maxW = max({ display.getStringWidth(oledLine1), display.getStringWidth(oledLine2), display.getStringWidth(oledLine3) });
 
   if (maxW > MAX_WIDTH_ALLOW && millis() - lastScrollTime >= SCROLL_SPEED) {
     lastScrollTime = millis();
@@ -622,11 +635,11 @@ void ringBuzzer() {
 
 void updateLED() {
   switch (currentState) {
-    case STATE_IDLE: 
-      digitalWrite(LED_PIN, HIGH); 
+    case STATE_IDLE:
+      digitalWrite(LED_PIN, HIGH);
       break;
-    case STATE_REQUEST_RECEIVED: 
-      digitalWrite(LED_PIN, (millis() / 200) % 2 == 0 ? LOW : HIGH); 
+    case STATE_REQUEST_RECEIVED:
+      digitalWrite(LED_PIN, (millis() / 200) % 2 == 0 ? LOW : HIGH);
       break;
     case STATE_ACKNOWLEDGED:
       digitalWrite(LED_PIN, (millis() / 500) % 2 == 0 ? LOW : HIGH);
@@ -661,7 +674,7 @@ void addSpaces(char* buffer, int n) {
 // ==========================================
 // HTTP HELPER
 // ==========================================
-String sendHttpRequest(String url, String method, String payload, int &httpCode) {
+String sendHttpRequest(String url, String method, String payload, int& httpCode) {
   HTTPClient http;
   http.begin(wifiClient, url);
   http.setTimeout(1000 * 60);  // 60 giây timeout
@@ -684,12 +697,16 @@ String sendHttpRequest(String url, String method, String payload, int &httpCode)
 // ==========================================
 // API GỌI SERVER
 // ==========================================
-void fetchEngineerInfo() {
+void fetchEngineerInfo(bool isBackground = false) {
   if (WiFi.status() != WL_CONNECTED) return;
 
   macAddress = WiFi.macAddress();
-  updateOLED("LOADING...", "MAC: " + macAddress, "Fetching Line Data", "Please wait...");
-  
+
+  // Chỉ hiển thị chữ LOADING... nếu không phải là tiến trình chạy ngầm
+  if (!isBackground) {
+    updateOLED("LOADING...", "MAC: " + macAddress, "Fetching Data", "Please wait...");
+  }
+
   int httpCode;
   String url = SERVER_BASE_URL + "/get-engineer-info-by?mac=" + macAddress;
   String response = sendHttpRequest(url, "GET", "", httpCode);
@@ -698,18 +715,35 @@ void fetchEngineerInfo() {
     DynamicJsonDocument doc(1024);
     if (!deserializeJson(doc, response) && doc["etc"].containsKey("lineInfo") && !doc["etc"]["lineInfo"].isNull()) {
       JsonObject info = doc["etc"]["lineInfo"];
-      
+
       currentEng.id = info["eng_id"].as<String>();
       currentEng.espId = info["engineer_esp_id"].as<String>();
       currentEng.espMac = info["engineer_esp_mac"].as<String>();
       currentEng.name = info["eng_name"].as<String>();
 
-      updateOLED("ENGINEER INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Engineer: " + currentEng.name + spaces, "");
+
+      // Chỉ cập nhật OLED nếu mạch đang rảnh rỗi
+      if (currentState == STATE_IDLE) {
+        String infoId = info["id"].as<String>();
+
+        String line1 = "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces;
+        String line2 = "Engineer: " + currentEng.name + spaces;
+
+        String line3 = "";
+        if (info["id"].isNull() || infoId == "null" || infoId == "") {
+          line3 = "This engineer hasn't taken on any line yet." + String(spaces);
+        }
+        updateOLED("ENGINEER INFO", line1, line2, line3);
+      }
     } else {
-      updateOLED("UNREGISTERED", "MAC Not Found!", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Contact Admin");
+      if (currentState == STATE_IDLE) {
+        updateOLED("UNREGISTERED", "MAC Not Found!", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Contact Admin");
+      }
     }
   } else {
-    updateOLED("SERVER ERR", "HTTP Code: " + String(httpCode), "Check Server API", "");
+    if (currentState == STATE_IDLE) {
+      updateOLED("SERVER ERR", "HTTP Code: " + String(httpCode), "Check Server API", "");
+    }
   }
 }
 
@@ -724,10 +758,10 @@ void checkPendingRequests() {
     DynamicJsonDocument doc(1024);
     if (!deserializeJson(doc, response) && doc.containsKey("etc") && !doc["etc"].isNull()) {
       JsonObject etc = doc["etc"];
-      
+
       if (etc["hasRequest"].as<bool>() == true && etc.containsKey("data") && !etc["data"].isNull()) {
         JsonObject data = etc["data"];
-        
+
         currentTicket.id = data["id"].as<String>();
         currentTicket.machineCode = data["line_id"].as<String>();
         currentTicket.machineName = data["line_esp_name"].as<String>();
@@ -747,8 +781,9 @@ void checkPendingRequests() {
         // Reset về IDLE nếu không còn request nào (hoặc đã được xác nhận hoàn thành từ phía Line)
         if (currentState == STATE_ACKNOWLEDGED) {
           currentState = STATE_IDLE;
-          currentTicket = TicketInfo(); // Xóa trắng dữ liệu ticket
-          updateOLED("E.SUCCESS", "User confirmed", "Pls click BUTTON to continue", "");
+          currentTicket = TicketInfo();  // Xóa trắng dữ liệu ticket
+          updateOLED("E.SUCCESS", "User confirmed", "After 4s will show screen info", "");
+          displayRestoreTime = millis() + 4000;
         }
       }
     }
@@ -798,7 +833,8 @@ void handleButtonPress() {
       break;
 
     case STATE_REQUEST_RECEIVED:
-      sendPostRequest("/acknowledge", STATE_ACKNOWLEDGED);
+      if (sendPostRequest("/acknowledge", STATE_ACKNOWLEDGED)) {
+      }
       break;
 
     case STATE_ACKNOWLEDGED:
@@ -840,17 +876,25 @@ void loop() {
   handleScrolling();
   updateLED();
 
+  // Thêm điều kiện tự động fetch lại thông tin Kỹ sư (chạy ngầm)
+  if (currentState == STATE_IDLE && (millis() - lastFetchTimeInfo >= FETCH_INTERVAL_INFO)) {
+    lastFetchTimeInfo = millis();
+    if (displayRestoreTime == 0) {
+      fetchEngineerInfo(true);
+    }
+  }
+
   if (millis() - lastCheckTime >= CHECK_INTERVAL) {
     lastCheckTime = millis();
     checkPendingRequests();
   }
 
   if (digitalRead(BUTTON_PIN) == LOW) {
-    delay(50); // Debounce
+    delay(50);  // Debounce
     if (digitalRead(BUTTON_PIN) == LOW) {
       handleButtonPress();
       // Thêm yield() vào vòng lặp chờ nhả nút để không làm treo AsyncWebServer
-      while (digitalRead(BUTTON_PIN) == LOW) { yield(); } 
+      while (digitalRead(BUTTON_PIN) == LOW) { yield(); }
     }
   }
 

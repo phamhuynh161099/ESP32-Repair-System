@@ -510,7 +510,8 @@ const char* password = "HSVINA@kor";
 const String SERVER_BASE_URL = "http://10.20.13.50:8080/espCall";
 
 // --- Cấu hình OLED ---
-SSD1306Wire display(0x3c, 14, 12);
+SSD1306Wire display(0x3c, 14, 12);  // Mr.Huynh ESP
+// SSD1306Wire display(0x3c, 5, 4); // Mr.Cuong ESP
 #define flipDisplay true
 #define LABEL_X 0
 #define VALUE_X 5
@@ -532,6 +533,8 @@ struct LineInfo {
   String engEspMac = "";
   String engName = "";
   String engId = "";
+
+  String location = "";
 };
 
 struct TicketInfo {
@@ -559,6 +562,9 @@ DeviceState currentState = STATE_NONE;
 unsigned long lastCheckTime = 0;
 const unsigned long CHECK_INTERVAL = 3000;
 unsigned long displayRestoreTime = 0;  // Thay thế cho delay(8000)
+
+unsigned long lastFetchTimeInfo = 0;
+const unsigned long FETCH_INTERVAL_INFO = 60 * 1000;
 
 // Biến điều khiển OLED
 String oledTitle, oledLine1, oledLine2, oledLine3;
@@ -698,11 +704,16 @@ String sendHttpRequest(String url, String method, String payload, int& httpCode)
 // ==========================================
 // API GỌI SERVER
 // ==========================================
-void fetchLineInfo() {
+// Thêm tham số isBackground mặc định là false
+void fetchLineInfo(bool isBackground = false) {
   if (WiFi.status() != WL_CONNECTED) return;
 
   macAddress = WiFi.macAddress();
-  updateOLED("LOADING...", "MAC: " + macAddress, "Fetching Line Data", "Please wait...");
+  
+  // Chỉ hiển thị chữ LOADING... nếu không phải là tiến trình chạy ngầm
+  if (!isBackground) {
+    updateOLED("LOADING...", "MAC: " + macAddress, "Fetching Line Data", "Please wait...");
+  }
 
   int httpCode;
   String url = SERVER_BASE_URL + "/get-line-info-by?mac=" + macAddress;
@@ -718,18 +729,27 @@ void fetchLineInfo() {
       currentLine.espCode = info["line_code"].as<String>();
       currentLine.espId = info["line_esp_id"].as<String>();
       currentLine.espMac = info["line_esp_mac"].as<String>();
+      currentLine.location = info["location"].as<String>();
 
       currentLine.engId = info["eng_id"].as<String>();
       currentLine.engEspId = info["engineer_esp_id"].as<String>();
       currentLine.engEspMac = info["engineer_esp_mac"].as<String>();
       currentLine.engName = info["eng_name"].as<String>();
 
-      updateOLED("LINE INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Line: " + currentLine.name, "Repair engineer: " + currentLine.engName + spaces);
+      // Chú ý: Chỉ update lại màn hình nếu mạch vẫn đang ở STATE_NONE 
+      // (đề phòng trường hợp lúc đang fetch ngầm thì có request nhảy vào làm thay đổi màn hình)
+      if (currentState == STATE_NONE) {
+          updateOLED("LINE INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Line: " + currentLine.name, "Repair engineer: " + currentLine.engName + spaces);
+      }
     } else {
-      updateOLED("UNREGISTERED", "MAC Not Found!", "MAC: " + macAddress, "Contact Admin");
+      if (currentState == STATE_NONE) {
+          updateOLED("UNREGISTERED", "MAC Not Found!", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Contact Admin");
+      }
     }
   } else {
-    updateOLED("SERVER ERR", "HTTP Code: " + String(httpCode), "Check Server API", "");
+    if (currentState == STATE_NONE) {
+        updateOLED("SERVER ERR", "HTTP Code: " + String(httpCode), "Check Server API", "");
+    }
   }
 }
 
@@ -799,6 +819,7 @@ void callMaintenanceEngineer() {
   doc["lineEspMac"] = currentLine.espMac;
   doc["lineEspName"] = currentLine.name;
   doc["lineId"] = currentLine.id;
+  doc["lineLocation"] = currentLine.location;
 
   String payload;
   serializeJson(doc, payload);
@@ -928,6 +949,12 @@ void setup() {
 void loop() {
   ElegantOTA.loop();  // OTA reload when new code
   handleScrolling();
+
+  // Tự động fetch lại thông tin sau mỗi khoảng thời gian (FETCH_INTERVAL)
+  if (currentState == STATE_NONE && (millis() - lastFetchTimeInfo >= FETCH_INTERVAL_INFO)) {
+    lastFetchTimeInfo = millis();
+    fetchLineInfo(true); // Truyền true để chạy ngầm, không chớp màn hình Loading
+  }
 
   if (millis() - lastCheckTime >= CHECK_INTERVAL) {
     lastCheckTime = millis();

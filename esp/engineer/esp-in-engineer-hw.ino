@@ -488,7 +488,8 @@
 #include <ElegantOTA.h>
 
 // --- Cấu hình Pin ---
-#define BUZZER_PIN 13  // D7
+// #define BUZZER_PIN 13  // Mr.Huynh ESP
+#define BUZZER_PIN 14  // Mr.Cuong ESP
 #define LED_PIN 2      // D4
 #define BUTTON_PIN 0   // D3
 
@@ -498,10 +499,11 @@ const char* password = "HSVINA@kor";
 const String SERVER_BASE_URL = "http://10.20.13.50:8080/espRecieve";
 
 // --- Cấu hình OLED ---
-SSD1306Wire display(0x3c, 14, 12);
+// SSD1306Wire display(0x3c, 14, 12); // Mr.Huynh ESP
+SSD1306Wire display(0x3c, 5, 4); // Mr.Cuong ESP
 #define flipDisplay true
 #define LABEL_X 0
-#define VALUE_X 10
+#define VALUE_X 5
 #define LINE_1_Y 22
 #define LINE_2_Y 36
 #define LINE_3_Y 50
@@ -548,6 +550,7 @@ String oledTitle, oledLine1, oledLine2, oledLine3;
 int scrollX = 0;
 unsigned long lastScrollTime = 0;
 int waitTimer = 500;
+char spaces[32];
 
 // ==========================================
 // HÀM HIỂN THỊ OLED
@@ -611,7 +614,10 @@ void handleScrolling() {
 // HÀM TIỆN ÍCH KHÁC
 // ==========================================
 void ringBuzzer() {
-  tone(BUZZER_PIN, 1500, 200);
+  for (int i = 0; i < 3; i++) {
+    tone(BUZZER_PIN, 1500, 200);
+    delay(500);
+  }
 }
 
 void updateLED() {
@@ -644,13 +650,21 @@ void connectWiFi() {
   }
 }
 
+void addSpaces(char* buffer, int n) {
+  // Tạo chuỗi space trực tiếp vào buffer có sẵn
+  for (int i = 0; i < n && i < 255; i++) {
+    buffer[i] = ' ';
+  }
+  buffer[n] = '\0';
+}
+
 // ==========================================
 // HTTP HELPER
 // ==========================================
 String sendHttpRequest(String url, String method, String payload, int &httpCode) {
   HTTPClient http;
   http.begin(wifiClient, url);
-  http.setTimeout(10000); 
+  http.setTimeout(1000 * 60);  // 60 giây timeout
 
   if (method == "POST") {
     http.addHeader("Content-Type", "application/json");
@@ -690,9 +704,9 @@ void fetchEngineerInfo() {
       currentEng.espMac = info["engineer_esp_mac"].as<String>();
       currentEng.name = info["eng_name"].as<String>();
 
-      updateOLED("ENG INFO", "ID: " + currentEng.id, "Eng: " + currentEng.name, "");
+      updateOLED("ENGINEER INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Engineer: " + currentEng.name + spaces, "");
     } else {
-      updateOLED("UNREGISTERED", "MAC Not Found!", "MAC: " + macAddress, "Contact Admin");
+      updateOLED("UNREGISTERED", "MAC Not Found!", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Contact Admin");
     }
   } else {
     updateOLED("SERVER ERR", "HTTP Code: " + String(httpCode), "Check Server API", "");
@@ -723,25 +737,25 @@ void checkPendingRequests() {
 
         if (currentTicket.status == "REQUESTED" && currentState != STATE_REQUEST_RECEIVED) {
           currentState = STATE_REQUEST_RECEIVED;
-          updateOLED("NEW TASK!", currentTicket.machineName, currentTicket.location, "");
+          updateOLED("E.NEW TASK", currentTicket.machineName, currentTicket.location, "Click click button start fixing!");
           ringBuzzer();
         } else if (currentTicket.status == "ACKNOWLEDGED" && currentState != STATE_ACKNOWLEDGED) {
           currentState = STATE_ACKNOWLEDGED;
-          updateOLED("ACKNOW", "To: " + currentTicket.location, "Fixing: " + currentTicket.machineCode, "Pls Ask User Confirm When you done");
+          updateOLED("E.ON THE WAY", "To: " + currentTicket.location, "Fixing: " + currentTicket.machineCode, "Pls Ask User Confirm When you done");
         }
       } else {
         // Reset về IDLE nếu không còn request nào (hoặc đã được xác nhận hoàn thành từ phía Line)
         if (currentState == STATE_ACKNOWLEDGED) {
           currentState = STATE_IDLE;
           currentTicket = TicketInfo(); // Xóa trắng dữ liệu ticket
-          updateOLED("SUCCESS", "User confirmed", "Pls click BUTTON to continue", "");
+          updateOLED("E.SUCCESS", "User confirmed", "Pls click BUTTON to continue", "");
         }
       }
     }
   }
 }
 
-bool sendPostRequest(String endpoint, DeviceState nextState, String displayTitle, String displayMsg) {
+bool sendPostRequest(String endpoint, DeviceState nextState) {
   if (WiFi.status() != WL_CONNECTED) return false;
 
   DynamicJsonDocument reqDoc(256);
@@ -764,7 +778,8 @@ bool sendPostRequest(String endpoint, DeviceState nextState, String displayTitle
 
   if (isSuccess) {
     currentState = nextState;
-    updateOLED(displayTitle, displayMsg, "Success!", "");
+    // updateOLED(displayTitle, displayMsg, "Success!", "");
+    updateOLED("E.ON THE WAY", "To: " + currentTicket.location, "Fixing: " + currentTicket.machineCode, "Pls Ask User Confirm When you done");
     ringBuzzer();
   } else {
     updateOLED("ERR: " + String(httpCode), "Action Failed", "Try Again", "");
@@ -779,11 +794,11 @@ bool sendPostRequest(String endpoint, DeviceState nextState, String displayTitle
 void handleButtonPress() {
   switch (currentState) {
     case STATE_IDLE:
-      updateOLED("INFO", "No Task", currentEng.name, "System Active");
+      updateOLED("ENGINEER INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Engineer: " + currentEng.name + spaces, "");
       break;
 
     case STATE_REQUEST_RECEIVED:
-      sendPostRequest("/acknowledge", STATE_ACKNOWLEDGED, "ON THE WAY", "To: " + currentTicket.location);
+      sendPostRequest("/acknowledge", STATE_ACKNOWLEDGED);
       break;
 
     case STATE_ACKNOWLEDGED:

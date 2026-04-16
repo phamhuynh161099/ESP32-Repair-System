@@ -549,6 +549,7 @@ String macAddress = "";
 
 enum DeviceState {
   STATE_NONE,
+  STATE_IN_QUEUE,
   STATE_CALLED_ENGINEER,
   STATE_WAITING_ACCEPT,
 };
@@ -564,6 +565,8 @@ String oledTitle, oledLine1, oledLine2, oledLine3;
 int scrollX = 0;
 unsigned long lastScrollTime = 0;
 int waitTimer = 1500;
+char spaces[32];
+
 
 // ==========================================
 // HÀM HIỂN THỊ OLED
@@ -612,7 +615,7 @@ void handleScrolling() {
   // Nếu đang trong thời gian chờ phục hồi màn hình (sau khi bấm hoàn thành)
   if (displayRestoreTime > 0 && millis() > displayRestoreTime) {
     displayRestoreTime = 0;
-    updateOLED("LINE INFO", "ID: " + currentLine.id, "Name: " + currentLine.name, "ESP: " + currentLine.espCode);
+    updateOLED("LINE INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Line: " + currentLine.name, "Repair engineer: " + currentLine.engName + spaces);
   }
 
   display.setFont(ArialMT_Plain_10);
@@ -659,13 +662,23 @@ void connectWiFi() {
   }
 }
 
+void addSpaces(char* buffer, int n) {
+  // Tạo chuỗi space trực tiếp vào buffer có sẵn
+  for (int i = 0; i < n && i < 255; i++) {
+    buffer[i] = ' ';
+  }
+  buffer[n] = '\0';
+}
+
+
+
 // ==========================================
 // HTTP HELPER
 // ==========================================
 String sendHttpRequest(String url, String method, String payload, int& httpCode) {
   HTTPClient http;
   http.begin(wifiClient, url);
-  http.setTimeout(10000);  // 10 giây timeout
+  http.setTimeout(1000 * 60);  // 60 giây timeout
 
   if (method == "POST") {
     http.addHeader("Content-Type", "application/json");
@@ -711,7 +724,7 @@ void fetchLineInfo() {
       currentLine.engEspMac = info["engineer_esp_mac"].as<String>();
       currentLine.engName = info["eng_name"].as<String>();
 
-      updateOLED("LINE INFO", "ID: " + currentLine.id, "Line: " + currentLine.name, "Eng: " + currentLine.engName);
+      updateOLED("LINE INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Line: " + currentLine.name, "Repair engineer: " + currentLine.engName + spaces);
     } else {
       updateOLED("UNREGISTERED", "MAC Not Found!", "MAC: " + macAddress, "Contact Admin");
     }
@@ -739,13 +752,28 @@ void checkPendingRequests() {
         currentTicket.status = ticket["status"].as<String>();
         currentTicket.location = ticket["location"].isNull() ? "N/A" : ticket["location"].as<String>();
 
-        if (currentTicket.status == "REQUESTED" && currentState != STATE_CALLED_ENGINEER) {
+        if (currentTicket.status == "NONE" && currentState != STATE_IN_QUEUE) {
+          currentState = STATE_IN_QUEUE;
+          updateOLED("L.IN QUEUE", "Already Call Engineer", "In Queue", "");
+          // ringBuzzer();
+        } else if (currentTicket.status == "REQUESTED" && currentState != STATE_CALLED_ENGINEER) {
           currentState = STATE_CALLED_ENGINEER;
-          updateOLED("LINE ESP", "Already Call Engineer", "", "");
-          ringBuzzer();
+          char message[64];
+          sprintf(message, "Engineer will come here soon%s", spaces);
+          updateOLED("L.CALLED", "Already Call Engineer", message, "");
+          // ringBuzzer();
         } else if (currentTicket.status == "ACKNOWLEDGED" && currentState != STATE_WAITING_ACCEPT) {
           currentState = STATE_WAITING_ACCEPT;
-          updateOLED("LINE ESP", "Engineer Acknowledged", "Pls Click Button When Your Machine Fixed", "");
+          char message[64];
+          sprintf(message, "Pls Click Button When Your Machine Fixed%s", spaces);
+          updateOLED("L.FIXING", "Engineer Acknowledged", message, "");
+        }
+      } else {
+        // Khong co ticket
+        // [NOTE] Can check them
+        if (currentState != STATE_NONE) {
+          Serial.println("\ncurrentState != STATE_NONE run this pack");
+          updateOLED("LINE INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Line: " + currentLine.name, "Repair engineer: " + currentLine.engName + spaces);
         }
       }
     }
@@ -783,9 +811,9 @@ void callMaintenanceEngineer() {
     if (!deserializeJson(respDoc, response)) {
       if (respDoc["etc"]["isSuccess"] == true) {
         if (respDoc["etc"]["isInQueue"] == true) {
-          updateOLED("IN QUEUE", "Da ghi nhan", "Dang cho xep hang", "Vui long doi...");
+          updateOLED("IN QUEUE", "Request received", "Waiting in queue", "Please wait...");
         } else {
-          updateOLED("SUCCESS", "Ki su dang toi", "Yeu cau thanh cong!", "");
+          updateOLED("INCOMING", "Engineer is coming", "Request successful!", "");
         }
         ringBuzzer();
       } else {
@@ -838,7 +866,9 @@ bool sendPostRequestComplete(DeviceState nextState, String displayTitle, String 
 void handleButtonPress() {
   switch (currentState) {
     case STATE_NONE:
-      callMaintenanceEngineer();
+      if (displayRestoreTime == 0) {
+        callMaintenanceEngineer();
+      }
       break;
 
     case STATE_WAITING_ACCEPT:
@@ -846,10 +876,12 @@ void handleButtonPress() {
         // Reset ticket
         currentTicket = TicketInfo();
         currentState = STATE_NONE;
-        updateOLED("LINE ESP", "You Confirmed Engineer Fixed", "", "");
 
+        char message[64];
+        sprintf(message, "After 4s will show screen info%s", spaces);
+        updateOLED("LINE INFO", "You Confirmed Engineer Fixed", message, "");
         // Non-blocking thay cho delay(8000)
-        displayRestoreTime = millis() + 8000;
+        displayRestoreTime = millis() + 4000;
       }
       break;
 
@@ -862,6 +894,7 @@ void setup() {
   Serial.begin(115200);
 
   display.init();
+  addSpaces(spaces, 10);
   if (flipDisplay) display.flipScreenVertically();
   display.clear();
   updateOLED("SYSTEM", "Starting...", "Initializing...", "");

@@ -475,6 +475,8 @@
 // }
 
 
+// =========== ENGINEER ESP ============
+
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
@@ -496,7 +498,7 @@
 // --- Cấu hình Mạng & Server ---
 const char* ssid = "HSVINA";
 const char* password = "HSVINA@kor";
-const String SERVER_BASE_URL = "http://10.20.13.50:8080/espRecieve";
+const String SERVER_BASE_URL = "http://10.20.13.50:8080/espRecieve"; // Server local
 
 // --- Cấu hình OLED ---
 // SSD1306Wire display(0x3c, 14, 12); // Mr.Huynh ESP
@@ -548,6 +550,9 @@ unsigned long displayRestoreTime = 0;
 
 unsigned long lastFetchTimeInfo = 0;
 const unsigned long FETCH_INTERVAL_INFO = 30 * 1000;  // 30s
+
+unsigned long lastWiFiCheckTime = 0;
+const unsigned long WIFI_CHECK_INTERVAL = 10 * 1000; // Kiểm tra mỗi 10 giây nếu mất mạng
 
 // OLED Scroll
 String oledTitle, oledLine1, oledLine2, oledLine3;
@@ -649,6 +654,11 @@ void updateLED() {
 
 void connectWiFi() {
   Serial.println("Connecting to WiFi...");
+
+  WiFi.mode(WIFI_STA); 
+  WiFi.setAutoReconnect(true); 
+  WiFi.persistent(true);
+
   WiFi.begin(ssid, password);
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
@@ -866,12 +876,36 @@ void setup() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/plain", "Hi! I am Receiver ESP8266.");
   });
+
+  server.on("/reset", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/html", "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Resetting...</title><meta http-equiv='refresh' content='3; url=/'></head><body><h1>🔄 Đang reset thiết bị...</h1><p>ESP8266 sẽ khởi động lại sau 2 giây.</p></body></html>");
+    delay(2000);
+    ESP.restart();
+  });
+  
   ElegantOTA.begin(&server);
   server.begin();
 }
 
 void loop() {
   ElegantOTA.loop();
+
+  // --- KIỂM TRA WIFI VÀO ĐÂY ---
+  if (WiFi.status() != WL_CONNECTED) {
+    if (millis() - lastWiFiCheckTime >= WIFI_CHECK_INTERVAL) {
+      lastWiFiCheckTime = millis();
+      Serial.println("WiFi dropped. Reconnecting...");
+      
+      // Báo hiệu lên màn hình
+      updateOLED("WIFI LOST", "Connection dropped", "Reconnecting...", "");
+      
+      WiFi.reconnect(); // Chủ động yêu cầu chip ESP quét và kết nối lại
+    }
+    // Nếu mất WiFi, kết thúc sớm vòng lặp loop để tránh chạy các tác vụ bên dưới gây lỗi
+    yield();
+    return; 
+  }
+  // --------------------------------------------
 
   handleScrolling();
   updateLED();

@@ -482,7 +482,7 @@
 // }
 
 
-
+// =========== LINE ESP ============
 
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
@@ -565,6 +565,9 @@ unsigned long displayRestoreTime = 0;  // Thay thế cho delay(8000)
 
 unsigned long lastFetchTimeInfo = 0;
 const unsigned long FETCH_INTERVAL_INFO = 30 * 1000;  // 30s
+
+unsigned long lastWiFiCheckTime = 0;
+const unsigned long WIFI_CHECK_INTERVAL = 10 * 1000; // Kiểm tra mỗi 10 giây nếu mất mạng
 
 // Biến điều khiển OLED
 String oledTitle, oledLine1, oledLine2, oledLine3;
@@ -654,6 +657,11 @@ void ringBuzzer() {
 
 void connectWiFi() {
   Serial.println("Connecting to WiFi...");
+
+  WiFi.mode(WIFI_STA); 
+  WiFi.setAutoReconnect(true); 
+  WiFi.persistent(true);
+
   WiFi.begin(ssid, password);
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
@@ -968,6 +976,24 @@ void setup() {
 
 void loop() {
   ElegantOTA.loop();  // OTA reload when new code
+
+  // --- KIỂM TRA WIFI VÀO ĐÂY ---
+  if (WiFi.status() != WL_CONNECTED) {
+    if (millis() - lastWiFiCheckTime >= WIFI_CHECK_INTERVAL) {
+      lastWiFiCheckTime = millis();
+      Serial.println("WiFi dropped. Reconnecting...");
+      
+      // Báo hiệu lên màn hình
+      updateOLED("WIFI LOST", "Connection dropped", "Reconnecting...", "");
+      
+      WiFi.reconnect(); // Chủ động yêu cầu chip ESP quét và kết nối lại
+    }
+    // Nếu mất WiFi, kết thúc sớm vòng lặp loop để tránh chạy các tác vụ bên dưới gây lỗi
+    yield();
+    return; 
+  }
+  // --------------------------------------------
+
   handleScrolling();
 
   // Tự động fetch lại thông tin sau mỗi khoảng thời gian (FETCH_INTERVAL)

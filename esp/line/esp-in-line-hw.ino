@@ -486,6 +486,7 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
 #include <SSD1306Wire.h>
@@ -507,7 +508,14 @@ AsyncWebServer server(80);
 // --- Cấu hình Mạng & Server ---
 const char* ssid = "HSVINA";
 const char* password = "HSVINA@kor";
-const String SERVER_BASE_URL = "http://10.20.13.50:8080/espCall";
+
+#define IS_PRODUCTION 1 
+#if IS_PRODUCTION == 1
+  const String SERVER_BASE_URL = "http://10.101.1.193:8080/espCall"; // HTTPS
+#else
+  const String SERVER_BASE_URL = "http://10.20.13.50:8080/espCall"; // HTTP Local
+#endif
+
 
 // --- Cấu hình OLED ---
 SSD1306Wire display(0x3c, 14, 12);  // Mr.Huynh ESP
@@ -687,13 +695,24 @@ void addSpaces(char* buffer, int n) {
 
 
 // ==========================================
-// HTTP HELPER
+// HTTP HELPER (HỖ TRỢ CẢ HTTP VÀ HTTPS)
 // ==========================================
 String sendHttpRequest(String url, String method, String payload, int& httpCode) {
   HTTPClient http;
-  http.begin(wifiClient, url);
+  
+  // 1. Tự động kiểm tra URL là HTTP hay HTTPS
+  if (url.startsWith("https://")) {
+    WiFiClientSecure secureClient;
+    secureClient.setInsecure(); // Bỏ qua xác thực chứng chỉ (Giúp ESP không bị lỗi khi SSL hết hạn)
+    http.begin(secureClient, url);
+  } else {
+    WiFiClient client;
+    http.begin(client, url);
+  }
+
   http.setTimeout(1000 * 60);  // 60 giây timeout
 
+  // 2. Gắn header và gọi API
   if (method == "POST") {
     http.addHeader("Content-Type", "application/json");
     httpCode = http.POST(payload);
@@ -701,10 +720,14 @@ String sendHttpRequest(String url, String method, String payload, int& httpCode)
     httpCode = http.GET();
   }
 
+  // 3. Đọc dữ liệu trả về
   String response = "";
   if (httpCode > 0) {
     response = http.getString();
+  } else {
+    Serial.println("HTTP Helper Error Code: " + String(httpCode) + " - URL: " + url);
   }
+  
   http.end();
   return response;
 }

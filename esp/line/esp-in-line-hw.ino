@@ -564,7 +564,7 @@ const unsigned long CHECK_INTERVAL = 3000;
 unsigned long displayRestoreTime = 0;  // Thay thế cho delay(8000)
 
 unsigned long lastFetchTimeInfo = 0;
-const unsigned long FETCH_INTERVAL_INFO = 60 * 1000;
+const unsigned long FETCH_INTERVAL_INFO = 30 * 1000;  // 30s
 
 // Biến điều khiển OLED
 String oledTitle, oledLine1, oledLine2, oledLine3;
@@ -709,7 +709,7 @@ void fetchLineInfo(bool isBackground = false) {
   if (WiFi.status() != WL_CONNECTED) return;
 
   macAddress = WiFi.macAddress();
-  
+
   // Chỉ hiển thị chữ LOADING... nếu không phải là tiến trình chạy ngầm
   if (!isBackground) {
     updateOLED("LOADING...", "MAC: " + macAddress, "Fetching Line Data", "Please wait...");
@@ -736,19 +736,26 @@ void fetchLineInfo(bool isBackground = false) {
       currentLine.engEspMac = info["engineer_esp_mac"].as<String>();
       currentLine.engName = info["eng_name"].as<String>();
 
-      // Chú ý: Chỉ update lại màn hình nếu mạch vẫn đang ở STATE_NONE 
+      // Chú ý: Chỉ update lại màn hình nếu mạch vẫn đang ở STATE_NONE
       // (đề phòng trường hợp lúc đang fetch ngầm thì có request nhảy vào làm thay đổi màn hình)
       if (currentState == STATE_NONE) {
-          updateOLED("LINE INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Line: " + currentLine.name, "Repair engineer: " + currentLine.engName + spaces);
+
+        String line3 = "";
+        if (currentLine.engId == "null" || currentLine.engId == "") {
+          line3 = "This line hasn't been taken on by any engineer yet." + String(spaces);
+        } else {
+          line3 = "Repair engineer: " + currentLine.engName + String(spaces);
+        }
+        updateOLED("LINE INFO", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Line: " + currentLine.name, line3);
       }
     } else {
       if (currentState == STATE_NONE) {
-          updateOLED("UNREGISTERED", "MAC Not Found!", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Contact Admin");
+        updateOLED("UNREGISTERED", "MAC Not Found!", "MAC - IP:" + macAddress + " - " + WiFi.localIP().toString() + spaces, "Contact Admin");
       }
     }
   } else {
     if (currentState == STATE_NONE) {
-        updateOLED("SERVER ERR", "HTTP Code: " + String(httpCode), "Check Server API", "");
+      updateOLED("SERVER ERR", "HTTP Code: " + String(httpCode), "Check Server API", "");
     }
   }
 }
@@ -887,12 +894,25 @@ bool sendPostRequestComplete(DeviceState nextState, String displayTitle, String 
 void handleButtonPress() {
   switch (currentState) {
     case STATE_NONE:
+      if (currentLine.engId == "null" || currentLine.engId == "") {
+        updateOLED("ERROR", "Action Failed", "No Engineer Assigned", "Contact Admin");
+        tone(BUZZER_PIN, 500, 1000);
+        displayRestoreTime = millis() + 3000;
+        break;
+      }
+
+      // Xử lý gọi Kỹ sư bình thường
       if (displayRestoreTime == 0) {
         callMaintenanceEngineer();
       }
       break;
-
     case STATE_WAITING_ACCEPT:
+      if (currentLine.engId == "null" || currentLine.engId == "") {
+        updateOLED("ERROR", "Action Failed", "No Engineer Assigned", "Contact Admin");
+        tone(BUZZER_PIN, 500, 1000);
+        displayRestoreTime = millis() + 3000;
+        break;
+      }
       if (sendPostRequestComplete(STATE_NONE, "COMPLETED", "Waiting task")) {
         // Reset ticket
         currentTicket = TicketInfo();
@@ -901,7 +921,7 @@ void handleButtonPress() {
         char message[64];
         sprintf(message, "After 4s will show screen info%s", spaces);
         updateOLED("LINE INFO", "You Confirmed Engineer Fixed", message, "");
-        // Non-blocking thay cho delay(8000)
+        // Non-blocking thay cho delay(4000)
         displayRestoreTime = millis() + 4000;
       }
       break;
@@ -953,7 +973,9 @@ void loop() {
   // Tự động fetch lại thông tin sau mỗi khoảng thời gian (FETCH_INTERVAL)
   if (currentState == STATE_NONE && (millis() - lastFetchTimeInfo >= FETCH_INTERVAL_INFO)) {
     lastFetchTimeInfo = millis();
-    fetchLineInfo(true); // Truyền true để chạy ngầm, không chớp màn hình Loading
+    if (displayRestoreTime == 0) {
+      fetchLineInfo(true);  // Truyền true để chạy ngầm, không chớp màn hình Loading
+    }
   }
 
   if (millis() - lastCheckTime >= CHECK_INTERVAL) {
